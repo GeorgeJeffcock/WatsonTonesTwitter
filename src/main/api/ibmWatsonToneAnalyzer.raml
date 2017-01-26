@@ -1,0 +1,355 @@
+#%RAML 0.8
+title: IBM Watson Tone Analyzer API
+version: "v3"
+mediaType: application/json
+documentation:
+  - title: IBM Watson Tone Analyzer API
+    content: Analyzes the tone of a piece of text. The message is analyzed for several tones - social,  <br>
+             emotional, and language. For each tone, various traits are derived. <br>
+             For example, conscientiousness, agreeableness, and openness. <br>
+             http://www.ibm.com/watson/developercloud/tone-analyzer/api/v3/ <br>
+             https://watson-api-explorer.mybluemix.net/apis/tone-analyzer-v3  
+baseUri:  https://gateway.watsonplatform.net/tone-analyzer/api/{version}/
+protocols: [HTTPS]
+
+securitySchemes:
+  - basic:
+      description: |
+        Authentication to the API occurs via HTTP Basic Auth. Provide your API key as the basic auth username.
+      type: Basic Authentication
+      describedBy:  
+        headers:
+          Authorization: 
+            description: |
+              The Authorization field value consists of credentials
+              containing the authentication information of the user agent for the
+              realm of the resource being requested.
+            type: string
+securedBy: [ basic ]
+
+#schemas:
+#  - getRecordTypeResponse200: !include schema/getRecordTypeResponse200.schema.json
+#  - getSessionResponse200: !include schema/getSessionResponse200.schema.json
+#  - httpProblem: !include schema/httpProblem.schema.json
+
+
+
+/tone:
+  displayName: Fetch Tone
+  get:
+    description:  Use GET /v3/tone for smaller request data sizes <br>
+                  and for URL query parameters
+    securedBy: [ basic ]
+    headers:
+      X-Watson-Learning-Opt-Out:
+        type: string
+        required: false
+        description:  By default, Bluemix collects data from all requests <br>
+                      and uses the data to improve the services. If you do not <br>
+                      want to share your data, set a header parameter X-Watson-Learning-Opt-Out <br>
+                      with the value 1 for all requests. If you do not specify this header in <br>
+                      all payload data, data is collected and used to improve the service.
+        example: 1
+    queryParameters:
+      version:
+        type: string
+        required: true
+        description:  When we make breaking changes to the API, we release a new, dated version.<br>
+                      The value for the version parameter is the date for the version of the API that you want to call.<br>
+                      The current version is 2016-05-19, and the documentation reflects the current version.<br>
+                      Check out the Release notes for the changelog of available versions.
+        example: 2016-05-19
+      text:
+        type: string
+        required: true
+        description:  Text that contains the content to be analyzed.<br>
+                      The Tone Analyzer Service supports up to 128KB of text,<br>
+                      or about 1000 sentences. Sentences with less than three words cannot be analyzed
+        example: My Content to be analyzed.
+      tones:
+        type: string
+        enum: [ emotion, language, social ]
+        required: false
+        description:  Filter the results by a specific tone. <br>
+                      Valid values for tones are emotion, language, and social.
+      sentences:
+        type: string
+        required: false
+        description:  Filter your response to remove the sentence level analysis.<br>
+                      Valid values for sentences are true and false. <br>
+                      This parameter defaults to true when it's not set, <br>
+                      which means that a sentence level analysis is automatically provided. <br>
+                      Change sentences=false to filter out the sentence level analysis.
+
+    responses:
+      200:
+        description: OK - Success
+        body:
+          application/json:
+            example : |
+                            {
+                              "document_tone": {
+                                "tone_categories": [
+                                  {
+                                    "tones": [
+                                      {
+                                        "score": 0.25482,
+                                        "tone_id": "anger",
+                                        "tone_name": "Anger"
+                                      },
+                                      {
+                                        "score": 0.345816,
+                                        "tone_id": "disgust",
+                                        "tone_name": "Disgust"
+                                      },
+                                      {
+                                        "score": 0.121116,
+                                        "tone_id": "fear",
+                                        "tone_name": "Fear"
+                                      },
+                                      {
+                                        "score": 0.078903,
+                                        "tone_id": "joy",
+                                        "tone_name": "Joy"
+                                      },
+                                      {
+                                        "score": 0.199345,
+                                        "tone_id": "sadness",
+                                        "tone_name": "Sadness"
+                                      }
+                                    ],
+                                    "category_id": "emotion_tone",
+                                    "category_name": "Emotion Tone"
+                                  },
+                                  {
+                                    "tones": [
+                                      {
+                                        "score": 0.999,
+                                        "tone_id": "analytical",
+                                        "tone_name": "Analytical"
+                                      },
+                                      {
+                                        "score": 0.999,
+                                        "tone_id": "confident",
+                                        "tone_name": "Confident"
+                                      },
+                                      {
+                                        "score": 0.694,
+                                        "tone_id": "tentative",
+                                        "tone_name": "Tentative"
+                                      }
+                                    ],
+                                    "category_id": "language_tone",
+                                    "category_name": "Language Tone"
+                                  },
+                                  {
+                                    "tones": [
+                                      {
+                                        "score": 0.271,
+                                        "tone_id": "openness_big5",
+                                        "tone_name": "Openness"
+                                      },
+                                      {
+                                        "score": 0.11,
+                                        "tone_id": "conscientiousness_big5",
+                                        "tone_name": "Conscientiousness"
+                                      },
+                                      {
+                                        "score": 0.844,
+                                        "tone_id": "extraversion_big5",
+                                        "tone_name": "Extraversion"
+                                      },
+                                      {
+                                        "score": 0.257,
+                                        "tone_id": "agreeableness_big5",
+                                        "tone_name": "Agreeableness"
+                                      },
+                                      {
+                                        "score": 0.497,
+                                        "tone_id": "emotional_range_big5",
+                                        "tone_name": "Emotional Range"
+                                      }
+                                    ],
+                                    "category_id": "social_tone",
+                                    "category_name": "Social Tone"
+                                  }
+                                ]
+                              }
+                            }
+      400:
+        description: Bad Request  Missing a required parameter or invalid parameter value.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 400,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      401:
+        description: 401 - Unauthorized No API key provided or the API key provided was not valid.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 401,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      404:
+        description: 404 - Not Found  The requested item or parameter doesn't exist.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 404,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      429:
+        description: 429 - Throttle limit Your organization ID made more than 1200 requests per minute, so your calls have been throttled.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 429,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      500:
+        description: 500 - Server Errors  Internal server error.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 500,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+
+  post:
+    description:   POST /v3/tone for larger request data sizes and for JSON requests.
+#    body:
+#      text/xml:
+#      application/json:
+    securedBy: [ basic ]
+    headers:
+      Content-Type:
+        type: string
+        enum: [ text/plain, text/htm, application/json ]
+        required: true
+        description:  The type of file being analyzed. <br>
+                      Valid values are text/plain, text/html, or application/json.
+        example: application/json
+      X-Watson-Learning-Opt-Out:
+        type: string
+        required: false
+        description:  By default, Bluemix collects data from all requests <br>
+                      and uses the data to improve the services. If you do not <br>
+                      want to share your data, set a header parameter X-Watson-Learning-Opt-Out <br>
+                      with the value 1 for all requests. If you do not specify this header in <br>
+                      all payload data, data is collected and used to improve the service.
+        example: 1
+    queryParameters:
+      version:
+        type: string
+        required: true
+        description:  When we make breaking changes to the API, we release a new, dated version.<br>
+                      The value for the version parameter is the date for the version of the API that you want to call.<br>
+                      The current version is 2016-05-19, and the documentation reflects the current version.<br>
+                      Check out the Release notes for the changelog of available versions.
+        example: 2016-05-19
+      tones:
+        type: string
+        enum: [ emotion, language, social ]
+        required: false
+        description:  Filter the results by a specific tone. <br>
+                      Valid values for tones are emotion, language, and social.
+      sentences:
+        type: string
+        required: false
+        description:  Filter your response to remove the sentence level analysis.<br>
+                      Valid values for sentences are true and false. <br>
+                      This parameter defaults to true when it's not set, <br>
+                      which means that a sentence level analysis is automatically provided. <br>
+                      Change sentences=false to filter out the sentence level analysis.
+    responses:
+      200:
+        description: OK - Success
+        body:
+          application/json:
+            example : |
+                            {
+                              "document_tone": {},
+                              "sentences_tone": [
+                                {
+                                  "sentence_id": 0,
+                                  "input_from": 0,
+                                  "input_to": 0,
+                                  "text": "string",
+                                  "tone_categories": [
+                                    {
+                                      "category_name": "string",
+                                      "category_id": "string",
+                                      "tones": [
+                                        {
+                                          "tone_name": "string",
+                                          "tone_id": "string",
+                                          "score": 0
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+      400:
+        description: Bad Request  Missing a required parameter or invalid parameter value.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 400,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      401:
+        description: 401 - Unauthorized No API key provided or the API key provided was not valid.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 401,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      404:
+        description: 404 - Not Found  The requested item or parameter doesn't exist.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 404,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      429:
+        description: 429 - Throttle limit Your organization ID made more than 1200 requests per minute, so your calls have been throttled.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 429,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }
+      500:
+        description: 500 - Server Errors  Internal server error.
+        body:
+          application/json:
+            example : |
+                          {
+                            "code" : 500,
+                            "error" : "The request does not contain a Content-Type"
+                            "help" : "Optional Help Message"
+                          }

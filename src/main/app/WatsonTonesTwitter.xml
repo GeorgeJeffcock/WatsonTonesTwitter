@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:cluster="http://www.mulesoft.org/schema/mule/ee/cluster" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:twitter="http://www.mulesoft.org/schema/mule/twitter" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/twitter http://www.mulesoft.org/schema/mule/twitter/current/mule-twitter.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+    <twitter:config name="GlobalConfiguration_Twitter" accessKey="${twitter.accessKey}" accessSecret="${twitter.accessSecret}" consumerKey="${twitter.consumerKey}" consumerSecret="${twitter.consumerSecret}" doc:name="Twitter: Configuration" siteStreamBaseUrl="${twitter.siteStreamBaseUrl}" streamBaseUrl="${twitter.streamBaseUrl}" />
+    <http:request-config name="HTTPS_Request_Configuration_IBM_Watson_Tone" protocol="HTTPS" host="gateway.watsonplatform.net" port="443" basePath="/tone-analyzer/api/v3/" doc:name="HTTP Request Configuration">
+        <http:basic-authentication username="${ibmWatson.basicAuth.username}" password="${ibmWatson.basicAuth.password}" />
+        <http:raml-api-configuration location="ibmWatsonToneAnalyzer.raml"/>
+
+    </http:request-config>
+        <http:request-config name="HTTPS_Request_Configuration_IBM_Watson_Alchemy" protocol="HTTPS" host="gateway-a.watsonplatform.net" port="443" basePath="/calls" doc:name="HTTP Request Configuration">
+        <http:raml-api-configuration location="ibmWatsonAlchemyLanguage.raml"/>
+
+    </http:request-config>
+    <http:listener-config name="HTTP_Listener_Configuration_CloudHub" host="0.0.0.0" port="${http.port}" doc:name="HTTP Listener Configuration" />
+    
+    <flow name="f_Main" >
+        <twitter:filtered-stream config-ref="GlobalConfiguration_Twitter" doc:name="Twitter (Filtered Stream)">
+            <twitter:keywords>
+                <twitter:keyword>${twitter.textToSearch}</twitter:keyword>
+            </twitter:keywords>
+        </twitter:filtered-stream>
+        <set-variable variableName="theTweet" value="#[payload]" doc:name="Variable - theTweet" />
+        <set-variable variableName="watsonText" value="#[payload.text.replaceAll(&quot;(?i)${twitter.textToSearch}&quot;, &quot;&quot;)]" doc:name="Variable - watsonText : Replace Hash Tag Out" encoding="UTF-8" mimeType="text/plain" />
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.watsonText == empty]">
+                <set-variable variableName="tweetReply" value="@#[flowVars.theTweet.user.screenName+' IBM Watson can not do much with an empty tweet!']" doc:name="Variable -If Empty - tweetReply"/>
+            </when>
+            <otherwise>
+                <http:request config-ref="HTTPS_Request_Configuration_IBM_Watson_Alchemy" path="/text/TextGetLanguage" method="GET" doc:name="HTTPS - IBM Watson Alchemy Language">
+                    <http:request-builder>
+                        <http:query-param paramName="apikey" value="${ibmWatson.apikey}"/>
+                        <http:query-param paramName="text" value="#[flowVars.watsonText]"/>
+                        <http:query-param paramName="outputMode" value="#['json']"/>
+                        <http:query-param paramName="jsonp" value="#[null]"/>
+                        <http:query-param paramName="url" value="#[null]"/>
+                        <http:query-param paramName="showSourceText" value="#[null]"/>
+                    </http:request-builder>
+                </http:request>
+                <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+                <choice doc:name="Choice">
+                    <when expression="#[(payload.?status == 'OK') &amp;&amp; (payload.?language != 'english') ]">
+                        <set-variable variableName="tweetReply" value="@#[flowVars.theTweet.user.screenName+' IBM Watson Tone Analyzer currently supports English. But we use Watson to determine the tweet language to be ' + payload.language]" doc:name="Variable - Not English - tweetReply"/>
+                    </when>
+                    <otherwise>
+                        <http:request config-ref="HTTPS_Request_Configuration_IBM_Watson_Tone" path="/tone" method="GET" doc:name="HTTPS - IBM Watson Tone Analyzer">
+                            <http:request-builder>
+                                <http:query-param paramName="version" value="${ibmWatson.datedVersion}"/>
+                                <http:query-param paramName="text" value="#[flowVars.watsonText]"/>
+                                <http:query-param paramName="tones" value="#[null]"/>
+                                <http:query-param paramName="sentences" value="#[null]"/>
+                                <http:header headerName="X-Watson-Learning-Opt-Out" value="#[null]"/>
+                            </http:request-builder>
+                        </http:request>
+                        <set-variable variableName="watsonToneResponse" value="#[message.payloadAs(java.lang.String)]" doc:name="Variable - watsonToneResponse" encoding="UTF-8" mimeType="text/plain"/>
+                        <dw:transform-message doc:name="Transform Message - Extract and Order Emotion Tones">
+                            <dw:input-payload doc:sample="sample_data\json_2.json"/>
+                            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+(
+	flatten payload.document_tone.tone_categories.tones 
+	filter ($.tone_id == "anger" or $.tone_id =="disgust" or $.tone_id == "fear" or $.tone_id == "joy" or $.tone_id == "sadness") 
+	orderBy $.score 
+	map $
+)
+[-1..0]]]></dw:set-payload>
+                            
+                            
+                            <dw:set-variable variableName="watsonToneAnger"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.document_tone.tone_categories[0].tones[0].score when payload.document_tone.tone_categories[0].tones[0].score != null otherwise null]]></dw:set-variable>
+                            
+                            
+                            
+                            
+                            <dw:set-variable variableName="watsonToneDisgust"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.document_tone.tone_categories[0].tones[1].score when payload.document_tone.tone_categories[0].tones[1].score != null otherwise null]]></dw:set-variable>
+                            
+                            
+                            
+                            
+                            <dw:set-variable variableName="watsonToneFear"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.document_tone.tone_categories[0].tones[2].score when payload.document_tone.tone_categories[0].tones[2].score != null otherwise null]]></dw:set-variable>
+                            
+                            
+                            
+                            
+                            <dw:set-variable variableName="watsonToneJoy"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.document_tone.tone_categories[0].tones[3].score when payload.document_tone.tone_categories[0].tones[3].score != null otherwise null]]></dw:set-variable>
+                            
+                            
+                            
+                            
+                            
+                            <dw:set-variable variableName="watsonToneSadness"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.document_tone.tone_categories[0].tones[4].score when payload.document_tone.tone_categories[0].tones[4].score != null otherwise null]]></dw:set-variable>
+                            
+
+                        </dw:transform-message>
+                        <set-variable variableName="tweetReply" value="@#[flowVars.theTweet.user.screenName+' Watson infers ' + payload[0].tone_id +' (Score:'+payload[0].score+') See report http://${http.host}/summary/'+flowVars.theTweet.id +'.html']" doc:name="Variable - tweetReply"/>
+                        <parse-template location="template/summary.html" doc:name="Parse Template"/>
+                        <file:outbound-endpoint path="/tmp" outputPattern="#[flowVars.theTweet.id + '.html']" responseTimeout="10000" doc:name="File"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+
+        <twitter:update-status config-ref="GlobalConfiguration_Twitter" status="#[flowVars.tweetReply]" inReplyTo="#[flowVars.theTweet.id]" doc:name="Twitter - Update Status" />
+
+    </flow>
+    
+        <flow name="f_webserver">
+        <http:listener config-ref="HTTP_Listener_Configuration_CloudHub" path="/summary/*" allowedMethods="GET" doc:name="HTTP" parseRequest="false"/>
+        <http:static-resource-handler resourceBase="/tmp" doc:name="HTTP Static Resource Handler" />
+    </flow>
+
+
+</mule>
